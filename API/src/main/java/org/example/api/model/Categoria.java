@@ -1,5 +1,6 @@
 package org.example.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -25,5 +26,6 @@ public class Categoria {
     private String descripcion;
 
     @OneToMany(mappedBy = "categoria")
+    @JsonIgnore
     private List<Curso> cursos;
 }

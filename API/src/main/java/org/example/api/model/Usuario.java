@@ -1,5 +1,6 @@
 package org.example.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -46,6 +47,7 @@ public class Usuario implements UserDetails {
     private Boolean activo = true;
 
     @OneToMany(mappedBy = "instructor", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Curso> cursosCreados;
 
     @PrePersist

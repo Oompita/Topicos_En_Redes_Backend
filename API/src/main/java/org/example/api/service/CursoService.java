@@ -9,9 +9,11 @@ import org.example.api.exception.ResourceNotFoundException;
 import org.example.api.model.Categoria;
 import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
+import org.example.api.model.Video;
 import org.example.api.repository.CategoriaRepository;
 import org.example.api.repository.CursoRepository;
 import org.example.api.repository.UsuarioRepository;
+import org.example.api.repository.VideoRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class CursoService {
     private final CursoRepository cursoRepository;
     private final CategoriaRepository categoriaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final VideoRepository videoRepository;
 
     @Transactional
     public CursoResponse crearCurso(CursoRequest request) {
@@ -98,7 +101,9 @@ public class CursoService {
             throw new BadRequestException("No tienes permisos para publicar este curso");
         }
 
-        if (curso.getVideos() == null || curso.getVideos().isEmpty()) {
+        // ✅ Cargar videos explícitamente
+        List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(id);
+        if (videos.isEmpty()) {
             throw new BadRequestException("El curso debe tener al menos un video para ser publicado");
         }
 
@@ -108,18 +113,22 @@ public class CursoService {
         return convertirACursoResponse(curso);
     }
 
+    @Transactional(readOnly = true)
     public List<CursoResponse> obtenerCursosPublicos() {
-        return cursoRepository.findByPublicadoTrue().stream()
+        List<Curso> cursos = cursoRepository.findByPublicadoTrue();
+        return cursos.stream()
                 .map(this::convertirACursoResponse)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public CursoResponse obtenerCursoPorId(Long id) {
         Curso curso = cursoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Curso no encontrado"));
         return convertirACursoResponseCompleto(curso);
     }
 
+    @Transactional(readOnly = true)
     public List<CursoResponse> obtenerCursosPorCategoria(Long categoriaId) {
         Categoria categoria = categoriaRepository.findById(categoriaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada"));
@@ -129,6 +138,7 @@ public class CursoService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<CursoResponse> buscarCursos(String keyword, Long categoriaId) {
         List<Curso> cursos;
         if (categoriaId != null) {
@@ -142,6 +152,7 @@ public class CursoService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<CursoResponse> obtenerMisCursos() {
         Usuario instructor = getUsuarioAutenticado();
         return cursoRepository.findByInstructor(instructor).stream()
@@ -155,6 +166,9 @@ public class CursoService {
     }
 
     private CursoResponse convertirACursoResponse(Curso curso) {
+        // ✅ Cargar videos solo cuando sea necesario
+        List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(curso.getId());
+
         return CursoResponse.builder()
                 .id(curso.getId())
                 .titulo(curso.getTitulo())
@@ -166,29 +180,65 @@ public class CursoService {
                 .imagenPortada(curso.getImagenPortada())
                 .fechaCreacion(curso.getFechaCreacion())
                 .publicado(curso.getPublicado())
-                .videos(curso.getCantidadVideos())
-                .duracion(curso.getDuracionTotal())
+                .videos(videos.size())
+                .duracion(calcularDuracionTotal(videos))
                 .build();
     }
 
     private CursoResponse convertirACursoResponseCompleto(Curso curso) {
-        CursoResponse response = convertirACursoResponse(curso);
+        // ✅ Cargar videos explícitamente
+        List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(curso.getId());
 
-        if (curso.getVideos() != null) {
-            List<VideoResponse> videos = curso.getVideos().stream()
-                    .map(video -> VideoResponse.builder()
-                            .id(video.getId())
-                            .titulo(video.getTitulo())
-                            .descripcion(video.getDescripcion())
-                            .urlVideo(video.getUrlVideo())
-                            .numero(video.getOrden())
-                            .duracion(video.getDuracionFormateada())
-                            .fechaSubida(video.getFechaSubida())
-                            .build())
-                    .collect(Collectors.toList());
-            response.setListaVideos(videos);
+        CursoResponse response = CursoResponse.builder()
+                .id(curso.getId())
+                .titulo(curso.getTitulo())
+                .descripcion(curso.getDescripcion())
+                .instructor(curso.getInstructor().getNombre() + " " + curso.getInstructor().getApellido())
+                .instructorId(curso.getInstructor().getId())
+                .categoria(curso.getCategoria().getNombre())
+                .categoriaId(curso.getCategoria().getId())
+                .imagenPortada(curso.getImagenPortada())
+                .fechaCreacion(curso.getFechaCreacion())
+                .publicado(curso.getPublicado())
+                .videos(videos.size())
+                .duracion(calcularDuracionTotal(videos))
+                .build();
+
+        List<VideoResponse> videoResponses = videos.stream()
+                .map(video -> VideoResponse.builder()
+                        .id(video.getId())
+                        .titulo(video.getTitulo())
+                        .descripcion(video.getDescripcion())
+                        .urlVideo(video.getUrlVideo())
+                        .numero(video.getOrden())
+                        .duracion(video.getDuracionFormateada())
+                        .fechaSubida(video.getFechaSubida())
+                        .build())
+                .collect(Collectors.toList());
+
+        response.setListaVideos(videoResponses);
+        return response;
+    }
+
+    private String calcularDuracionTotal(List<Video> videos) {
+        if (videos == null || videos.isEmpty()) {
+            return "0 horas";
         }
 
-        return response;
+        int totalMinutos = videos.stream()
+                .filter(v -> v.getDuracionSegundos() != null)
+                .mapToInt(v -> (int) Math.ceil(v.getDuracionSegundos() / 60.0))
+                .sum();
+
+        int horas = totalMinutos / 60;
+        int minutos = totalMinutos % 60;
+
+        if (horas > 0 && minutos > 0) {
+            return horas + "h " + minutos + "m";
+        } else if (horas > 0) {
+            return horas + " horas";
+        } else {
+            return minutos + " minutos";
+        }
     }
 }
