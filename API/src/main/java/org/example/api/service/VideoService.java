@@ -37,6 +37,14 @@ public class VideoService {
             throw new BadRequestException("No tienes permisos para agregar videos a este curso");
         }
 
+        // ✅ VALIDACIÓN: Verificar que el orden no esté duplicado
+        if (videoRepository.existsByCursoIdAndOrden(cursoId, request.getOrden())) {
+            throw new BadRequestException(
+                    "Ya existe un video con el orden " + request.getOrden() + " en este curso. " +
+                            "Por favor, elige otro número de orden."
+            );
+        }
+
         String urlVideo = storageService.guardarVideo(archivo);
 
         Video video = new Video();
@@ -60,6 +68,16 @@ public class VideoService {
         Usuario usuarioAutenticado = getUsuarioAutenticado();
         if (!video.getCurso().getInstructor().getId().equals(usuarioAutenticado.getId())) {
             throw new BadRequestException("No tienes permisos para editar este video");
+        }
+
+        // ✅ VALIDACIÓN: Verificar orden solo si cambió
+        if (!video.getOrden().equals(request.getOrden())) {
+            if (videoRepository.existsByCursoIdAndOrden(video.getCurso().getId(), request.getOrden())) {
+                throw new BadRequestException(
+                        "Ya existe un video con el orden " + request.getOrden() + " en este curso. " +
+                                "Por favor, elige otro número de orden."
+                );
+            }
         }
 
         video.setTitulo(request.getTitulo());

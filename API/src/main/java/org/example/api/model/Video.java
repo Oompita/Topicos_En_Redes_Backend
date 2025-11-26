@@ -8,7 +8,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "videos")
+@Table(
+        name = "videos",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"curso_id", "orden"},
+                name = "uk_curso_orden"
+        )
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -11,4 +11,5 @@ import java.util.List;
 public interface VideoRepository extends JpaRepository<Video, Long> {
     List<Video> findByCursoOrderByOrdenAsc(Curso curso);
     List<Video> findByCursoIdOrderByOrdenAsc(Long cursoId);
+    boolean existsByCursoIdAndOrden(Long cursoId, Integer orden);
 }
