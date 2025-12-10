@@ -10,9 +10,7 @@ import org.example.api.exception.ResourceNotFoundException;
 import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
-import org.example.api.repository.CursoRepository;
-import org.example.api.repository.UsuarioRepository;
-import org.example.api.repository.VideoRepository;
+import org.example.api.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +30,8 @@ public class AdminService {
     private final VideoRepository videoRepository;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
+    private final CalificacionRepository calificacionRepository;
+    private final CategoriaRepository categoriaRepository;
 
     // ==================== GESTIÓN DE USUARIOS ====================
 
@@ -183,6 +183,8 @@ public class AdminService {
         long instructores = usuarioRepository.findAll().stream()
                 .filter(u -> u.getRol().name().equals("INSTRUCTOR"))
                 .count();
+        long totalCategorias = categoriaRepository.count();
+        long totalCalificaciones = calificacionRepository.count();
 
         stats.put("totalUsuarios", totalUsuarios);
         stats.put("totalCursos", totalCursos);
@@ -191,6 +193,8 @@ public class AdminService {
         stats.put("totalVideos", totalVideos);
         stats.put("estudiantes", estudiantes);
         stats.put("instructores", instructores);
+        stats.put("totalCategorias", totalCategorias);
+        stats.put("totalCalificaciones", totalCalificaciones);
 
         return stats;
     }
@@ -250,4 +254,6 @@ public class AdminService {
             return minutos + " minutos";
         }
     }
+
+
 }

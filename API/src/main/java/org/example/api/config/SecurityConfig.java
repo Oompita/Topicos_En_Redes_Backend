@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/cursos/publicos/**").permitAll()
                         .requestMatchers("/api/cursos/{id}").permitAll()
                         .requestMatchers("/api/categorias/**").permitAll()
+                        .requestMatchers("/api/calificaciones/curso/*/resumen").permitAll()
                         .requestMatchers("/files/**").permitAll()
                         .anyRequest().authenticated()
                 )
