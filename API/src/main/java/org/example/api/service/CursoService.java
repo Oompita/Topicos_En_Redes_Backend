@@ -10,10 +10,7 @@ import org.example.api.model.Categoria;
 import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
-import org.example.api.repository.CategoriaRepository;
-import org.example.api.repository.CursoRepository;
-import org.example.api.repository.UsuarioRepository;
-import org.example.api.repository.VideoRepository;
+import org.example.api.repository.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +27,7 @@ public class CursoService {
     private final CategoriaRepository categoriaRepository;
     private final UsuarioRepository usuarioRepository;
     private final VideoRepository videoRepository;
+    private final VisualizacionRepository visualizacionRepository;
 
     @Transactional
     public CursoResponse crearCurso(CursoRequest request) {
@@ -166,8 +164,11 @@ public class CursoService {
     }
 
     private CursoResponse convertirACursoResponse(Curso curso) {
-        // ✅ Cargar videos solo cuando sea necesario
+        // Cargar videos solo cuando sea necesario
         List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(curso.getId());
+
+        // Obtener total de vistas del curso
+        Long totalVistas = visualizacionRepository.countByCursoId(curso.getId());
 
         return CursoResponse.builder()
                 .id(curso.getId())
@@ -182,12 +183,16 @@ public class CursoService {
                 .publicado(curso.getPublicado())
                 .videos(videos.size())
                 .duracion(calcularDuracionTotal(videos))
+                .totalVistas(totalVistas)
                 .build();
     }
 
     private CursoResponse convertirACursoResponseCompleto(Curso curso) {
-        // ✅ Cargar videos explícitamente
+        // Cargar videos explícitamente
         List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(curso.getId());
+
+        // Obtener total de vistas del curso
+        Long totalVistas = visualizacionRepository.countByCursoId(curso.getId());
 
         CursoResponse response = CursoResponse.builder()
                 .id(curso.getId())
@@ -202,18 +207,25 @@ public class CursoService {
                 .publicado(curso.getPublicado())
                 .videos(videos.size())
                 .duracion(calcularDuracionTotal(videos))
+                .totalVistas(totalVistas)
                 .build();
 
         List<VideoResponse> videoResponses = videos.stream()
-                .map(video -> VideoResponse.builder()
-                        .id(video.getId())
-                        .titulo(video.getTitulo())
-                        .descripcion(video.getDescripcion())
-                        .urlVideo(video.getUrlVideo())
-                        .numero(video.getOrden())
-                        .duracion(video.getDuracionFormateada())
-                        .fechaSubida(video.getFechaSubida())
-                        .build())
+                .map(video -> {
+                    // Obtener vistas de cada video
+                    Long vistasVideo = visualizacionRepository.countByVideoId(video.getId());
+
+                    return VideoResponse.builder()
+                            .id(video.getId())
+                            .titulo(video.getTitulo())
+                            .descripcion(video.getDescripcion())
+                            .urlVideo(video.getUrlVideo())
+                            .numero(video.getOrden())
+                            .duracion(video.getDuracionFormateada())
+                            .fechaSubida(video.getFechaSubida())
+                            .totalVistas(vistasVideo)
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         response.setListaVideos(videoResponses);

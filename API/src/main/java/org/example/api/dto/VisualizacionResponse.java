@@ -11,13 +11,12 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VideoResponse {
+public class VisualizacionResponse {
     private Long id;
-    private String titulo;
-    private String descripcion;
-    private String urlVideo;
-    private Integer numero;
-    private String duracion;
-    private LocalDateTime fechaSubida;
-    private Long totalVistas;
+    private Long videoId;
+    private String videoTitulo;
+    private Long usuarioId;
+    private String nombreUsuario;
+    private LocalDateTime fechaVisualizacion;
+    private String ipAddress;
 }

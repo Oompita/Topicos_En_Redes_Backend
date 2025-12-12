@@ -49,6 +49,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/cursos/{id}").permitAll()
                         .requestMatchers("/api/categorias/**").permitAll()
                         .requestMatchers("/api/calificaciones/curso/*/resumen").permitAll()
+                        .requestMatchers("/api/visualizaciones/video/**").permitAll()
+                        .requestMatchers("/api/visualizaciones/curso/*/total").permitAll()
                         .requestMatchers("/files/**").permitAll()
                         .anyRequest().authenticated()
                 )

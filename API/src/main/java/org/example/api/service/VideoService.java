@@ -10,6 +10,7 @@ import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.repository.CursoRepository;
 import org.example.api.repository.VideoRepository;
+import org.example.api.repository.VisualizacionRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final CursoRepository cursoRepository;
     private final StorageService storageService;
+    private final VisualizacionRepository visualizacionRepository;
 
     @Transactional
     public VideoResponse agregarVideo(Long cursoId, VideoRequest request, MultipartFile archivo) {
@@ -125,6 +127,9 @@ public class VideoService {
     }
 
     private VideoResponse convertirAVideoResponse(Video video) {
+        // Obtener total de vistas del video
+        Long totalVistas = visualizacionRepository.countByVideoId(video.getId());
+
         return VideoResponse.builder()
                 .id(video.getId())
                 .titulo(video.getTitulo())
@@ -133,6 +138,7 @@ public class VideoService {
                 .numero(video.getOrden())
                 .duracion(video.getDuracionFormateada())
                 .fechaSubida(video.getFechaSubida())
+                .totalVistas(totalVistas)
                 .build();
     }
 }

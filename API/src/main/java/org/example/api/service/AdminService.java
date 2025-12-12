@@ -32,6 +32,7 @@ public class AdminService {
     private final StorageService storageService;
     private final CalificacionRepository calificacionRepository;
     private final CategoriaRepository categoriaRepository;
+    private final VisualizacionRepository visualizacionRepository;
 
     // ==================== GESTIÓN DE USUARIOS ====================
 
@@ -183,8 +184,12 @@ public class AdminService {
         long instructores = usuarioRepository.findAll().stream()
                 .filter(u -> u.getRol().name().equals("INSTRUCTOR"))
                 .count();
+
         long totalCategorias = categoriaRepository.count();
         long totalCalificaciones = calificacionRepository.count();
+
+        // 🆕 Agregar total de visualizaciones
+        long totalVisualizaciones = visualizacionRepository.contarTotalVisualizaciones();
 
         stats.put("totalUsuarios", totalUsuarios);
         stats.put("totalCursos", totalCursos);
@@ -195,6 +200,7 @@ public class AdminService {
         stats.put("instructores", instructores);
         stats.put("totalCategorias", totalCategorias);
         stats.put("totalCalificaciones", totalCalificaciones);
+        stats.put("totalVisualizaciones", totalVisualizaciones);
 
         return stats;
     }
@@ -217,6 +223,9 @@ public class AdminService {
     private CursoResponse convertirACursoResponse(Curso curso) {
         List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(curso.getId());
 
+        // 🆕 Obtener total de vistas del curso
+        Long totalVistas = visualizacionRepository.countByCursoId(curso.getId());
+
         return CursoResponse.builder()
                 .id(curso.getId())
                 .titulo(curso.getTitulo())
@@ -230,6 +239,7 @@ public class AdminService {
                 .publicado(curso.getPublicado())
                 .videos(videos.size())
                 .duracion(calcularDuracion(videos))
+                .totalVistas(totalVistas)
                 .build();
     }
 
