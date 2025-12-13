@@ -4,11 +4,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.example.api.dto.VisualizacionResponse;
 import org.example.api.exception.ResourceNotFoundException;
+import org.example.api.listener.VisualizacionEvent;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.model.Visualizacion;
 import org.example.api.repository.VideoRepository;
 import org.example.api.repository.VisualizacionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class VisualizacionService {
 
     private final VisualizacionRepository visualizacionRepository;
     private final VideoRepository videoRepository;
+    private final ApplicationEventPublisher eventPublisher; // NUEVO
 
     /**
      * Registrar una nueva vista de un video
@@ -53,6 +56,9 @@ public class VisualizacionService {
         visualizacion.setIpAddress(ipAddress);
 
         visualizacion = visualizacionRepository.save(visualizacion);
+
+        // ✅ NUEVO: Publicar evento para que el listener lo detecte
+        eventPublisher.publishEvent(new VisualizacionEvent(this, video, visualizacion.getId()));
 
         return convertirAVisualizacionResponse(visualizacion);
     }

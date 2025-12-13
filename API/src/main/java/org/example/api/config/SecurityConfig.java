@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        //CRÍTICO: Permitir OPTIONS para todas las rutas (necesario para CORS preflight)
+                        // CRÍTICO: Permitir OPTIONS para todas las rutas (necesario para CORS preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/cursos/publicos/**").permitAll()
@@ -53,6 +53,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/calificaciones/curso/*/resumen").permitAll()
                         .requestMatchers("/api/visualizaciones/video/**").permitAll()
                         .requestMatchers("/api/visualizaciones/curso/*/total").permitAll()
+                        // Endpoints públicos de cupones
+                        .requestMatchers("/api/cupones/curso/*/disponible").permitAll()
+                        .requestMatchers("/api/cupones/cursos-con-vistas").permitAll()
                         .requestMatchers("/files/**").permitAll()
                         .anyRequest().authenticated()
                 )
@@ -75,7 +78,7 @@ public class SecurityConfig {
                 "http://localhost:3000"
         ));
 
-        // Métodos HTTP permitidos (incluye PATCH y OPTIONS)
+        //  Métodos HTTP permitidos (incluye PATCH y OPTIONS)
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
         ));
@@ -92,7 +95,7 @@ public class SecurityConfig {
                 "Content-Type"
         ));
 
-        // Tiempo de caché para preflight requests (1 hora)
+        //  Tiempo de caché para preflight requests (1 hora)
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
