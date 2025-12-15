@@ -2,11 +2,14 @@ package org.example.api.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.api.dto.VisualizacionResponse;
 import org.example.api.exception.ResourceNotFoundException;
+import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.model.Visualizacion;
+import org.example.api.repository.CursoRepository;
 import org.example.api.repository.VideoRepository;
 import org.example.api.repository.VisualizacionRepository;
 import org.springframework.security.core.Authentication;
@@ -18,15 +21,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VisualizacionService {
 
     private final VisualizacionRepository visualizacionRepository;
     private final VideoRepository videoRepository;
+    private final CursoRepository cursoRepository;
+    private final org.example.api.service.SnackApiService snackApiService;
 
     /**
      * Registrar una nueva vista de un video
      * Puede ser de un usuario autenticado o anónimo
+     * Detecta cuando un curso alcanza 10 vistas por primera vez
      */
     @Transactional
     public VisualizacionResponse registrarVista(Long videoId, HttpServletRequest request) {
@@ -34,6 +41,11 @@ public class VisualizacionService {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Video no encontrado"));
 
+        // Obtener vistas ANTES de registrar la nueva
+        Long cursoId = video.getCurso().getId();
+        Long vistasAntes = visualizacionRepository.countByCursoId(cursoId);
+
+        // Registrar la nueva visualización
         Visualizacion visualizacion = new Visualizacion();
         visualizacion.setVideo(video);
 
@@ -54,7 +66,76 @@ public class VisualizacionService {
 
         visualizacion = visualizacionRepository.save(visualizacion);
 
+        // Verificar si el curso acaba de alcanzar 10 vistas
+        Long vistasDespues = vistasAntes + 1;
+
+        log.info("Curso ID {}: Vistas antes={}, vistas después={}", cursoId, vistasAntes, vistasDespues);
+
+        if (vistasAntes < 10 && vistasDespues >= 10) {
+            log.info("🎉 Curso ID {} alcanzó 10 vistas! Notificando a Snack API...", cursoId);
+            procesarHitoDeDiezVistas(cursoId, vistasDespues);
+        }
+
         return convertirAVisualizacionResponse(visualizacion);
+    }
+
+    /**
+     * Procesa el evento cuando un curso alcanza 10 vistas por primera vez
+     * Notifica a la API de Snack y actualiza la descripción del curso con el código
+     */
+    private void procesarHitoDeDiezVistas(Long cursoId, Long vistasActuales) {
+        try {
+            // 1. Notificar a Snack API y obtener código de descuento
+            String codigoDescuento = snackApiService.notificarVistasYObtenerCodigo(cursoId, vistasActuales);
+
+            if (codigoDescuento != null && !codigoDescuento.trim().isEmpty()) {
+                // 2. Actualizar la descripción del curso con el código
+                actualizarDescripcionConCodigo(cursoId, codigoDescuento);
+            } else {
+                log.warn("No se recibió código de descuento de Snack API para curso ID {}", cursoId);
+            }
+
+        } catch (Exception e) {
+            log.error("Error al procesar hito de 10 vistas para curso ID {}: {}", cursoId, e.getMessage());
+            // No lanzamos la excepción para no interrumpir el flujo de registro de vista
+        }
+    }
+
+    /**
+     * Actualiza la descripción del curso agregando el código de descuento
+     * Si no existe la sección "Códigos de Descuento:", la crea
+     */
+    @Transactional
+    public void actualizarDescripcionConCodigo(Long cursoId, String codigoDescuento) {
+        try {
+            Curso curso = cursoRepository.findById(cursoId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Curso no encontrado"));
+
+            String descripcionActual = curso.getDescripcion() != null ? curso.getDescripcion() : "";
+            String seccionCodigos = "Códigos de Descuento: ";
+
+            String nuevaDescripcion;
+
+            if (descripcionActual.contains(seccionCodigos)) {
+                // Ya existe la sección, agregar el nuevo código
+                nuevaDescripcion = descripcionActual + ", " + codigoDescuento;
+            } else {
+                // No existe la sección, crearla
+                if (!descripcionActual.isEmpty()) {
+                    nuevaDescripcion = descripcionActual + "\n\n" + seccionCodigos + codigoDescuento;
+                } else {
+                    nuevaDescripcion = seccionCodigos + codigoDescuento;
+                }
+            }
+
+            curso.setDescripcion(nuevaDescripcion);
+            cursoRepository.save(curso);
+
+            log.info("✅ Descripción del curso ID {} actualizada con código: {}", cursoId, codigoDescuento);
+
+        } catch (Exception e) {
+            log.error("Error al actualizar descripción del curso ID {}: {}", cursoId, e.getMessage());
+        }
     }
 
     /**
