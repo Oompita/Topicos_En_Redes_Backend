@@ -8,5 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SnackViewsRequest {
-    private int views;
+    private Long views;
 }

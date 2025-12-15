@@ -1,16 +1,13 @@
-package org.example.api.service;
+package org.example.api.snackIntegration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.api.dto.SnackLoginRequest;
-import org.example.api.dto.SnackLoginResponse;
-import org.example.api.dto.SnackViewsRequest;
-import org.example.api.dto.SnackCodeResponse;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Servicio para comunicarse con la API externa de Snack
