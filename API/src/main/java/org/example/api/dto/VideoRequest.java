@@ -19,6 +19,6 @@ public class VideoRequest {
     @NotNull(message = "El orden es requerido")
     @Min(value = 1, message = "El orden debe ser al menos 1")
     private Integer orden;
-    
+
     private Integer duracionSegundos;
 }
