@@ -45,6 +45,9 @@ public class Curso {
     @Column(nullable = false)
     private Boolean publicado = false;
 
+    @Column(name = "precio")
+    private Double precio;
+
     @OneToMany(mappedBy = "curso", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orden ASC")
     private List<Video> videos;

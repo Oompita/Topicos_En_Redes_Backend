@@ -11,6 +11,7 @@ import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.repository.*;
+import org.example.api.upbolisIntegration.UpbolisApiService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class CursoService {
     private final UsuarioRepository usuarioRepository;
     private final VideoRepository videoRepository;
     private final VisualizacionRepository visualizacionRepository;
+    private final UpbolisApiService upbolisApiService;
 
     @Transactional
     public CursoResponse crearCurso(CursoRequest request) {
@@ -43,6 +45,7 @@ public class CursoService {
         curso.setCategoria(categoria);
         curso.setImagenPortada(request.getImagenPortada());
         curso.setPublicado(false);
+        curso.setPrecio(request.getPrecio());
 
         curso = cursoRepository.save(curso);
 
@@ -71,7 +74,29 @@ public class CursoService {
             curso.setImagenPortada(request.getImagenPortada());
         }
 
+        if (request.getPrecio() != null) {
+            curso.setPrecio(request.getPrecio());
+            if (curso.getPublicado()) {
+                try {
+                    upbolisApiService.actualizarPrecioCurso(curso.getId(), request.getPrecio());
+                } catch (Exception e) {
+                    System.err.println("Error al actualizar precio en UPBolis: " + e.getMessage());
+                }
+            }
+        }
+
         curso = cursoRepository.save(curso);
+
+        try {
+            upbolisApiService.registrarCurso(
+                    curso.getId(),
+                    curso.getTitulo(),
+                    curso.getDescripcion(),
+                    curso.getPrecio()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar curso en UPBolis: " + e.getMessage());
+        }
 
         return convertirACursoResponse(curso);
     }
@@ -184,6 +209,7 @@ public class CursoService {
                 .videos(videos.size())
                 .duracion(calcularDuracionTotal(videos))
                 .totalVistas(totalVistas)
+                .precio(curso.getPrecio())
                 .build();
     }
 
@@ -208,6 +234,7 @@ public class CursoService {
                 .videos(videos.size())
                 .duracion(calcularDuracionTotal(videos))
                 .totalVistas(totalVistas)
+                .precio(curso.getPrecio())
                 .build();
 
         List<VideoResponse> videoResponses = videos.stream()

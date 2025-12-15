@@ -11,6 +11,7 @@ import org.example.api.model.Curso;
 import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.repository.*;
+import org.example.api.upbolisIntegration.UpbolisApiService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class AdminService {
     private final CalificacionRepository calificacionRepository;
     private final CategoriaRepository categoriaRepository;
     private final VisualizacionRepository visualizacionRepository;
+    private final UpbolisApiService upbolisApiService;
 
     // ==================== GESTIÓN DE USUARIOS ====================
 
@@ -141,6 +143,14 @@ public class AdminService {
             storageService.eliminarArchivo(curso.getImagenPortada());
         }
 
+        if (curso.getPublicado()) {
+            try {
+                upbolisApiService.eliminarCurso(curso.getId());
+            } catch (Exception e) {
+                System.err.println("Error al eliminar curso de UPBolis: " + e.getMessage());
+            }
+        }
+
         cursoRepository.delete(curso);
     }
 
@@ -240,6 +250,7 @@ public class AdminService {
                 .videos(videos.size())
                 .duracion(calcularDuracion(videos))
                 .totalVistas(totalVistas)
+                .precio(curso.getPrecio())
                 .build();
     }
 

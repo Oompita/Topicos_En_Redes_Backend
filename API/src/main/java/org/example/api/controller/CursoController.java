@@ -26,12 +26,14 @@ public class CursoController {
             @RequestParam("titulo") String titulo,
             @RequestParam("descripcion") String descripcion,
             @RequestParam("categoriaId") Long categoriaId,
+            @RequestParam(value = "precio", required = false) Double precio,
             @RequestParam(value = "imagen", required = false) MultipartFile imagen) {
 
         CursoRequest request = new CursoRequest();
         request.setTitulo(titulo);
         request.setDescripcion(descripcion);
         request.setCategoriaId(categoriaId);
+        request.setPrecio(precio);
 
         if (imagen != null && !imagen.isEmpty()) {
             String urlImagen = storageService.guardarImagen(imagen);
@@ -48,12 +50,14 @@ public class CursoController {
             @RequestParam("titulo") String titulo,
             @RequestParam("descripcion") String descripcion,
             @RequestParam("categoriaId") Long categoriaId,
+            @RequestParam(value = "precio", required = false) Double precio,
             @RequestParam(value = "imagen", required = false) MultipartFile imagen) {
 
         CursoRequest request = new CursoRequest();
         request.setTitulo(titulo);
         request.setDescripcion(descripcion);
         request.setCategoriaId(categoriaId);
+        request.setPrecio(precio);
 
         if (imagen != null && !imagen.isEmpty()) {
             String urlImagen = storageService.guardarImagen(imagen);

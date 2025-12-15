@@ -20,4 +20,6 @@ public class CursoRequest {
     private Long categoriaId;
     
     private String imagenPortada;
+
+    private Double precio;
 }

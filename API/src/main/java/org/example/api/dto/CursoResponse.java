@@ -27,4 +27,5 @@ public class CursoResponse {
     private String duracion;
     private List<VideoResponse> listaVideos;
     private Long totalVistas;
+    private Double precio;
 }
