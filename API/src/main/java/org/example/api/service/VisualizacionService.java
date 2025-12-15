@@ -28,7 +28,7 @@ public class VisualizacionService {
     private final VisualizacionRepository visualizacionRepository;
     private final VideoRepository videoRepository;
     private final CursoRepository cursoRepository;
-    private final org.example.api.service.SnackApiService snackApiService;
+    private final org.example.api.snackIntegration.SnackApiService snackApiService;
 
     /**
      * Registrar una nueva vista de un video
