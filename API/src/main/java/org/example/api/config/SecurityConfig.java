@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/visualizaciones/curso/*/total").permitAll()
                         .requestMatchers("/files/**").permitAll()
                         .requestMatchers("/api/external/**").permitAll()
+                        .requestMatchers("/api/snack/**").permitAll() // 🔓 Permitir llamadas de Snack
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

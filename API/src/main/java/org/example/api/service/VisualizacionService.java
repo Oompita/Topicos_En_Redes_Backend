@@ -12,6 +12,7 @@ import org.example.api.model.Visualizacion;
 import org.example.api.repository.CursoRepository;
 import org.example.api.repository.VideoRepository;
 import org.example.api.repository.VisualizacionRepository;
+import org.example.api.snackIntegration.SnackApiService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ public class VisualizacionService {
     private final VisualizacionRepository visualizacionRepository;
     private final VideoRepository videoRepository;
     private final CursoRepository cursoRepository;
-    private final org.example.api.snackIntegration.SnackApiService snackApiService;
+    private final SnackApiService snackApiService;
 
     /**
      * Registrar una nueva vista de un video
@@ -81,29 +82,32 @@ public class VisualizacionService {
 
     /**
      * Procesa el evento cuando un curso alcanza 10 vistas por primera vez
-     * Notifica a la API de Snack y actualiza la descripción del curso con el código
+     * Llama directamente a Snack para generar código y actualiza la descripción
      */
     private void procesarHitoDeDiezVistas(Long cursoId, Long vistasActuales) {
         try {
-            // 1. Notificar a Snack API y obtener código de descuento
-            String codigoDescuento = snackApiService.notificarVistasYObtenerCodigo(cursoId, vistasActuales);
+            log.info("🎯 Curso {} alcanzó exactamente 10 vistas. Solicitando código a Snack...", cursoId);
+
+            // Llamar directamente al endpoint de generación de Snack
+            // Snack internamente consultará nuestro endpoint /api/snack/views-validation que retorna 10
+            String codigoDescuento = snackApiService.generarCodigoDesdeSnack();
 
             if (codigoDescuento != null && !codigoDescuento.trim().isEmpty()) {
-                // 2. Actualizar la descripción del curso con el código
+                log.info("✅ Código recibido de Snack: {}", codigoDescuento);
                 actualizarDescripcionConCodigo(cursoId, codigoDescuento);
             } else {
-                log.warn("No se recibió código de descuento de Snack API para curso ID {}", cursoId);
+                log.warn("⚠️ Snack no devolvió código para curso ID {}", cursoId);
             }
 
         } catch (Exception e) {
-            log.error("Error al procesar hito de 10 vistas para curso ID {}: {}", cursoId, e.getMessage());
-            // No lanzamos la excepción para no interrumpir el flujo de registro de vista
+            log.error("❌ Error al procesar hito de 10 vistas para curso {}: {}", cursoId, e.getMessage(), e);
         }
     }
 
     /**
      * Actualiza la descripción del curso agregando el código de descuento
-     * Si no existe la sección "Códigos de Descuento:", la crea
+     * Si no existe la sección "Códigos de descuento en Snack: ", la crea
+     * Si ya existe, simplemente añade el nuevo código
      */
     @Transactional
     public void actualizarDescripcionConCodigo(Long cursoId, String codigoDescuento) {
@@ -112,13 +116,14 @@ public class VisualizacionService {
                     .orElseThrow(() -> new ResourceNotFoundException("Curso no encontrado"));
 
             String descripcionActual = curso.getDescripcion() != null ? curso.getDescripcion() : "";
-            String seccionCodigos = "Códigos de Descuento: ";
+            String seccionCodigos = "\nCódigos de descuento en Snack: ";
 
             String nuevaDescripcion;
 
             if (descripcionActual.contains(seccionCodigos)) {
-                // Ya existe la sección, agregar el nuevo código
+                // Ya existe la sección, añadir el nuevo código
                 nuevaDescripcion = descripcionActual + ", " + codigoDescuento;
+                log.info("📝 Añadiendo código adicional a sección existente");
             } else {
                 // No existe la sección, crearla
                 if (!descripcionActual.isEmpty()) {
@@ -126,6 +131,7 @@ public class VisualizacionService {
                 } else {
                     nuevaDescripcion = seccionCodigos + codigoDescuento;
                 }
+                log.info("📝 Creando nueva sección de códigos");
             }
 
             curso.setDescripcion(nuevaDescripcion);
@@ -134,9 +140,14 @@ public class VisualizacionService {
             log.info("✅ Descripción del curso ID {} actualizada con código: {}", cursoId, codigoDescuento);
 
         } catch (Exception e) {
-            log.error("Error al actualizar descripción del curso ID {}: {}", cursoId, e.getMessage());
+            log.error("❌ Error al actualizar descripción del curso {}: {}", cursoId, e.getMessage(), e);
         }
     }
+
+
+
+
+
 
     /**
      * Obtener total de vistas de un video
