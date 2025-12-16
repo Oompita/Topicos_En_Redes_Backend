@@ -1,4 +1,6 @@
 package org.example.api.service;
+import org.example.api.dto.TopCursoResponse;
+import org.example.api.repository.CalificacionRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.example.api.dto.CursoRequest;
@@ -30,6 +32,7 @@ public class CursoService {
     private final VideoRepository videoRepository;
     private final VisualizacionRepository visualizacionRepository;
     private final UpbolisApiService upbolisApiService;
+    private final CalificacionRepository calificacionRepository;
 
     @Transactional
     public CursoResponse crearCurso(CursoRequest request) {
@@ -279,5 +282,23 @@ public class CursoService {
         } else {
             return minutos + " minutos";
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopCursoResponse> getTop3CursosConMasVistas() {
+        List<Curso> topCursos = cursoRepository.findTop3CursosConMasVistas();
+
+        return topCursos.stream()
+                .map(curso -> {
+                    Long vistas = visualizacionRepository.countByCursoId(curso.getId());
+                    Double puntuacion = calificacionRepository.obtenerPromedioCalificacion(curso.getId());
+
+                    return TopCursoResponse.builder()
+                            .nombreCurso(curso.getTitulo())
+                            .cantidadVistas(vistas != null ? vistas : 0L)
+                            .puntuacion(puntuacion != null ? Math.round(puntuacion * 100.0) / 100.0 : 0.0)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

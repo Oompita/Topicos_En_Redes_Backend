@@ -26,4 +26,14 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
             "(LOWER(c.titulo) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(c.descripcion) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Curso> buscarCursosPorCategoria(@Param("keyword") String keyword, @Param("categoriaId") Long categoriaId);
+
+
+    @Query(value = "SELECT c.* FROM cursos c " +
+            "LEFT JOIN videos v ON v.curso_id = c.id " +
+            "LEFT JOIN visualizaciones vis ON vis.video_id = v.id " +
+            "WHERE c.publicado = true " +
+            "GROUP BY c.id " +
+            "ORDER BY COUNT(vis.id) DESC " +
+            "LIMIT 3", nativeQuery = true)
+    List<Curso> findTop3CursosConMasVistas();
 }

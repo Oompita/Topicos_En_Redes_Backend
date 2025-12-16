@@ -54,6 +54,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/visualizaciones/video/**").permitAll()
                         .requestMatchers("/api/visualizaciones/curso/*/total").permitAll()
                         .requestMatchers("/files/**").permitAll()
+                        .requestMatchers("/api/external/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
