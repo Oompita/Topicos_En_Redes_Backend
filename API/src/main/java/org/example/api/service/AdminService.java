@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.example.api.dto.CursoResponse;
 import org.example.api.dto.UsuarioRequest;
 import org.example.api.dto.UsuarioResponse;
-import org.example.api.dto.VideoResponse;
 import org.example.api.exception.BadRequestException;
 import org.example.api.exception.ResourceNotFoundException;
 import org.example.api.model.Curso;
@@ -145,7 +144,7 @@ public class AdminService {
 
         if (curso.getPublicado()) {
             try {
-                upbolisApiService.eliminarCurso(curso.getId());
+                upbolisApiService.desactivarProducto(curso.getId());
             } catch (Exception e) {
                 System.err.println("Error al eliminar curso de UPBolis: " + e.getMessage());
             }

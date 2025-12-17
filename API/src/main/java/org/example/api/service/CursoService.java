@@ -1,10 +1,10 @@
 package org.example.api.service;
-import org.example.api.dto.TopCursoResponse;
-import org.example.api.repository.CalificacionRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.api.dto.CursoRequest;
 import org.example.api.dto.CursoResponse;
+import org.example.api.dto.TopCursoResponse;
 import org.example.api.dto.VideoResponse;
 import org.example.api.exception.BadRequestException;
 import org.example.api.exception.ResourceNotFoundException;
@@ -14,6 +14,7 @@ import org.example.api.model.Usuario;
 import org.example.api.model.Video;
 import org.example.api.repository.*;
 import org.example.api.upbolisIntegration.UpbolisApiService;
+import org.example.api.upbolisIntegration.UpbolisProductResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CursoService {
@@ -52,6 +53,27 @@ public class CursoService {
 
         curso = cursoRepository.save(curso);
 
+        //  Si el curso tiene precio, crear producto en UPBolis
+        if (curso.getPrecio() != null && curso.getPrecio() > 0) {
+            try {
+                UpbolisProductResponse upbolisProduct = upbolisApiService.crearProducto(
+                        curso.getTitulo(),
+                        curso.getDescripcion(),
+                        curso.getPrecio()
+                );
+
+                if (upbolisProduct != null) {
+                    curso.setUpbolisProductId(upbolisProduct.getId());
+                    curso = cursoRepository.save(curso);
+                    log.info("Curso {} registrado en UPBolis con ID: {}",
+                            curso.getId(), upbolisProduct.getId());
+                }
+            } catch (Exception e) {
+                log.error("Error al registrar curso en UPBolis: {}", e.getMessage());
+
+            }
+        }
+
         return convertirACursoResponse(curso);
     }
 
@@ -77,30 +99,65 @@ public class CursoService {
             curso.setImagenPortada(request.getImagenPortada());
         }
 
+        // 🔧 MANEJO CORRECTO DEL PRECIO CON UPBOLIS
         if (request.getPrecio() != null) {
-            curso.setPrecio(request.getPrecio());
-            if (curso.getPublicado()) {
+            Double precioAnterior = curso.getPrecio();
+            Double precioNuevo = request.getPrecio();
+
+            curso.setPrecio(precioNuevo);
+
+            // Si el curso ya estaba en UPBolis
+            if (curso.getUpbolisProductId() != null) {
+
+                // Caso 1: El precio cambió - RECREAR producto
+                if (precioAnterior != null && !precioAnterior.equals(precioNuevo)) {
+                    log.warn("⚠Precio cambió de {} a {}. UPBolis no permite actualizar precio.",
+                            precioAnterior, precioNuevo);
+                    log.warn("Se desactivará el producto viejo y se creará uno nuevo.");
+
+                    try {
+                        UpbolisProductResponse nuevoProducto = upbolisApiService.recrearProductoConNuevoPrecio(
+                                curso.getUpbolisProductId(),
+                                curso.getTitulo(),
+                                curso.getDescripcion(),
+                                precioNuevo
+                        );
+
+                        if (nuevoProducto != null) {
+                            curso.setUpbolisProductId(nuevoProducto.getId());
+                            log.info("Producto recreado en UPBolis con nuevo ID: {}", nuevoProducto.getId());
+                        }
+                    } catch (Exception e) {
+                        log.error("Error al recrear producto en UPBolis: {}", e.getMessage());
+                    }
+                }
+                // Caso 2: Solo cambió título/descripción - NO hacer nada en UPBolis
+                // Ya que UPBolis no permite actualizar estos campos
+                else {
+                    log.info("Solo cambió título/descripción. UPBolis no permite actualizar estos campos.");
+                    log.info("El producto en UPBolis mantiene su nombre y descripción originales.");
+                }
+            }
+            // Si no estaba en UPBolis pero ahora tiene precio y está publicado
+            else if (precioNuevo > 0 && curso.getPublicado()) {
                 try {
-                    upbolisApiService.actualizarPrecioCurso(curso.getId(), request.getPrecio());
+                    UpbolisProductResponse upbolisProduct = upbolisApiService.crearProducto(
+                            curso.getTitulo(),
+                            curso.getDescripcion(),
+                            precioNuevo
+                    );
+
+                    if (upbolisProduct != null) {
+                        curso.setUpbolisProductId(upbolisProduct.getId());
+                        log.info("Curso agregado a UPBolis con ID: {}", upbolisProduct.getId());
+                    }
                 } catch (Exception e) {
-                    System.err.println("Error al actualizar precio en UPBolis: " + e.getMessage());
+                    log.error("Error al crear producto en UPBolis: {}", e.getMessage());
                 }
             }
         }
 
         curso = cursoRepository.save(curso);
-
-        try {
-            upbolisApiService.registrarCurso(
-                    curso.getId(),
-                    curso.getTitulo(),
-                    curso.getDescripcion(),
-                    curso.getPrecio()
-            );
-        } catch (Exception e) {
-            System.err.println("Error al registrar curso en UPBolis: " + e.getMessage());
-        }
-
         return convertirACursoResponse(curso);
     }
 
@@ -112,6 +169,15 @@ public class CursoService {
         Usuario usuarioAutenticado = getUsuarioAutenticado();
         if (!curso.getInstructor().getId().equals(usuarioAutenticado.getId())) {
             throw new BadRequestException("No tienes permisos para eliminar este curso");
+        }
+
+        if (curso.getUpbolisProductId() != null) {
+            try {
+                upbolisApiService.desactivarProducto(curso.getUpbolisProductId());
+                log.info("Producto {} desactivado en UPBolis", curso.getUpbolisProductId());
+            } catch (Exception e) {
+                log.error("Error al desactivar producto en UPBolis: {}", e.getMessage());
+            }
         }
 
         cursoRepository.delete(curso);
@@ -127,7 +193,6 @@ public class CursoService {
             throw new BadRequestException("No tienes permisos para publicar este curso");
         }
 
-        // ✅ Cargar videos explícitamente
         List<Video> videos = videoRepository.findByCursoIdOrderByOrdenAsc(id);
         if (videos.isEmpty()) {
             throw new BadRequestException("El curso debe tener al menos un video para ser publicado");
@@ -135,6 +200,34 @@ public class CursoService {
 
         curso.setPublicado(true);
         curso = cursoRepository.save(curso);
+
+        // Si tiene precio y no está en UPBolis, crearlo
+        if (curso.getPrecio() != null && curso.getPrecio() > 0 && curso.getUpbolisProductId() == null) {
+            try {
+                UpbolisProductResponse upbolisProduct = upbolisApiService.crearProducto(
+                        curso.getTitulo(),
+                        curso.getDescripcion(),
+                        curso.getPrecio()
+                );
+
+                if (upbolisProduct != null) {
+                    curso.setUpbolisProductId(upbolisProduct.getId());
+                    curso = cursoRepository.save(curso);
+                    log.info("Curso publicado en UPBolis con ID: {}", upbolisProduct.getId());
+                }
+            } catch (Exception e) {
+                log.error("Error al publicar en UPBolis: {}", e.getMessage());
+            }
+        }
+        // Si ya está en UPBolis, solo activarlo
+        else if (curso.getUpbolisProductId() != null) {
+            try {
+                upbolisApiService.activarProducto(curso.getUpbolisProductId());
+                log.info("Producto reactivado en UPBolis");
+            } catch (Exception e) {
+                log.error("Error al activar producto en UPBolis: {}", e.getMessage());
+            }
+        }
 
         return convertirACursoResponse(curso);
     }

@@ -87,4 +87,7 @@ public class Curso {
             return minutos + " minutos";
         }
     }
+
+    @Column(name = "upbolis_product_id")
+    private Long upbolisProductId;
 }
